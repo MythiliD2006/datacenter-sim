@@ -1,0 +1,20 @@
+# Python cache — never commit these
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+
+# Logs and generated output
+logs/
+results/
+analysis/reports/
+data/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
