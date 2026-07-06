@@ -1,0 +1,10 @@
+stages:
+  - duration: 60
+    users: 100
+    spawn_rate: 5
+  - duration: 300
+    users: 100
+    spawn_rate: 5
+  - duration: 60
+    users: 10
+    spawn_rate: 5
