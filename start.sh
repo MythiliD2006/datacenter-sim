@@ -107,7 +107,38 @@ ensure_docker() {
     fi
 }
 
+check_ports() {
+    if ! command -v lsof &> /dev/null; then
+        info "Skipping port pre-check (lsof not available) — Docker will report conflicts directly if any occur."
+        return
+    fi
+
+    local ports=(8000 8089 9090 9100 3000)
+    local names=("FastAPI" "Locust" "Prometheus" "Node Exporter" "Grafana")
+    local conflicts=()
+
+    for i in "${!ports[@]}"; do
+        local port="${ports[$i]}"
+        local name="${names[$i]}"
+        if lsof -i ":$port" -sTCP:LISTEN &> /dev/null; then
+            local process
+            process=$(lsof -i ":$port" -sTCP:LISTEN -t | head -1 | xargs -I{} ps -p {} -o comm= 2>/dev/null)
+            conflicts+=("Port $port ($name) is already in use${process:+ by: $process}")
+        fi
+    done
+
+    if [ ${#conflicts[@]} -gt 0 ]; then
+        error "Cannot start — the following ports are already taken:"
+        for c in "${conflicts[@]}"; do
+            echo "    - $c"
+        done
+        error "Stop whatever is using these ports, or edit the port mappings in infra/docker-compose.yml, then retry."
+        exit 1
+    fi
+}
+
 start_stack() {
+    check_ports
     info "Starting datacenter-sim (this may take a few minutes on first run)..."
     cd "$INFRA_DIR"
     docker compose up --build -d
