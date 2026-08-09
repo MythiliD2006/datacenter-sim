@@ -235,8 +235,8 @@ datacenter-sim/
 | Member 2 | Mythili | App developer | Rate limiting, 100 seeded users, /stats endpoint, 21 automated tests |
 | Member 3 | Harshitha | Simulation | locustfile.py, loadshapes.py, run_test.py, YAML profiles |
 | Member 4 | Kavesha | Infrastructure | docker-compose.yml, prometheus.yml, start.sh, crash_watch.py |
-| Member 5 | — | Monitoring | Grafana dashboards, Node Exporter alerts |
-| Member 6 | — | Analysis | analyse.py, PDF report, SLA verdict, charts |
+| Member 5 | Akshata | Monitoring | Grafana dashboards, Node Exporter alerts |
+| Member 6 | Abirami | Analysis | analyse.py, PDF report, SLA verdict, charts |
 
 ---
 
