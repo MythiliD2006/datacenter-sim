@@ -200,6 +200,42 @@ bytes_to_mb() {
     awk -v b="$1" 'BEGIN { printf "%.2f", b / 1024 / 1024 }'
 }
 
+# Reads the "95%" column for the "/login" row directly from Locust's --csv
+# stats output. Column position is resolved from the header row each time
+# instead of hardcoded, so it isn't broken by Locust version differences.
+get_p95_login() {
+    local stats_csv="$1"
+    if [ ! -f "$stats_csv" ]; then
+        echo "N/A"
+        return
+    fi
+    awk -F',' '
+        NR==1 {
+            for (i=1; i<=NF; i++) {
+                h=$i
+                gsub(/"/,"",h)
+                if (h == "Name") name_col = i
+                if (h == "95%") p95_col = i
+            }
+            next
+        }
+        {
+            name = $name_col
+            gsub(/"/,"",name)
+            gsub(/^[ \t]+|[ \t]+$/,"",name)
+            if (name == "/login") {
+                val = $p95_col
+                gsub(/"/,"",val)
+                print val
+                found = 1
+            }
+        }
+        END {
+            if (!found) print "N/A"
+        }
+    ' "$stats_csv"
+}
+
 start_stack() {
     check_ports
     info "Starting datacenter-sim (this may take a few minutes on first run)..."
@@ -372,10 +408,7 @@ print_summary() {
         fi
     fi
 
-    if [ -f "$run_log" ]; then
-        p95_login=$(grep -E "^POST[[:space:]]+/login[[:space:]]" "$run_log" | tail -1 | awk '{print $8}')
-        p95_login="${p95_login:-N/A}"
-    fi
+    p95_login=$(get_p95_login "$stats_csv")
 
     local rx_mb tx_mb
     rx_mb=$(bytes_to_mb "$(( rx_after - rx_before ))")
