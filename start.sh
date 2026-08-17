@@ -12,11 +12,16 @@
 #      Prometheus, Node Exporter, Grafana)
 #
 # Usage:
-#   ./start.sh                    → installs prerequisites if needed, then starts everything
-#   ./start.sh stop               → stops everything
-#   ./start.sh status             → shows which containers are running
-#   ./start.sh stress normal_day  → runs the normal-day load test profile
-#   ./start.sh stress flash_event → runs the flash-event (spike) load test profile
+#   ./start.sh -l normal_day              → FULL PLAYBOOK: baseline network stats, start
+#                                            all services, wait healthy, start crash watchdog,
+#                                            run the load test, capture final network stats,
+#                                            print a summary (requests, failures, p95 login
+#                                            latency, network RX/TX, SLA verdict)
+#   ./start.sh -l normal_day,flash_event  → same playbook, runs both scenarios in sequence
+#   ./start.sh start                      → just start services, no load test
+#   ./start.sh stop                       → stops everything
+#   ./start.sh status                     → shows which containers are running
+#   ./start.sh stress normal_day          → runs a load test only (services must already be up)
 #
 # Any issues — contact Kavesha (Member 4 / Infrastructure).
 
@@ -137,6 +142,64 @@ check_ports() {
     fi
 }
 
+detect_iface() {
+    detect_os
+    if [ "$OS" = "linux" ]; then
+        if ip link show eth0 &> /dev/null; then
+            echo "eth0"
+        else
+            # fall back to the first non-loopback interface
+            ip -o link show | awk -F': ' '$2 != "lo" {print $2; exit}'
+        fi
+    elif [ "$OS" = "mac" ]; then
+        if ifconfig en0 &> /dev/null; then
+            echo "en0"
+        else
+            echo ""
+        fi
+    else
+        echo ""
+    fi
+}
+
+# Prints "RX_BYTES TX_BYTES" for the given interface, or "0 0" if it can't be read.
+get_iface_bytes() {
+    local iface="$1"
+    if [ -z "$iface" ]; then
+        echo "0 0"
+        return
+    fi
+
+    detect_os
+    if [ "$OS" = "linux" ]; then
+        if ! command -v ip &> /dev/null; then
+            echo "0 0"
+            return
+        fi
+        local out rx tx
+        out=$(ip -s link show "$iface" 2>/dev/null)
+        rx=$(echo "$out" | awk '/RX:/{getline; print $1; exit}')
+        tx=$(echo "$out" | awk '/TX:/{getline; print $1; exit}')
+        echo "${rx:-0} ${tx:-0}"
+    elif [ "$OS" = "mac" ]; then
+        if ! command -v netstat &> /dev/null; then
+            echo "0 0"
+            return
+        fi
+        local line rx tx
+        line=$(netstat -bI "$iface" 2>/dev/null | grep "Link#" | head -1)
+        rx=$(echo "$line" | awk '{print $7}')
+        tx=$(echo "$line" | awk '{print $10}')
+        echo "${rx:-0} ${tx:-0}"
+    else
+        echo "0 0"
+    fi
+}
+
+bytes_to_mb() {
+    awk -v b="$1" 'BEGIN { printf "%.2f", b / 1024 / 1024 }'
+}
+
 start_stack() {
     check_ports
     info "Starting datacenter-sim (this may take a few minutes on first run)..."
@@ -215,18 +278,151 @@ run_stress_test() {
     info "Running stress test with profile: $profile (inside Docker, against fastapi service)"
     mkdir -p "$REPO_ROOT/results"
     cd "$INFRA_DIR"
-    docker compose run --rm \
+    local run_log="$REPO_ROOT/results/run_${profile}.log"
+    docker compose run --rm -T \
         -e LOCUST_PROFILE="profiles/${profile}.yaml" \
         -v "$REPO_ROOT/results:/code/results" \
         locust-worker \
         -f locustfile.py,loadshapes.py \
         --host http://fastapi:8000 \
         --headless \
-        --csv "results/results_${profile}"
+        --csv "results/results_${profile}" 2>&1 | tee "$run_log"
     info "Stress test finished. Results saved to: $REPO_ROOT/results/"
 }
 
+run_playbook() {
+    # Full playbook, per spec: baseline -> start -> healthy -> watchdog -> load -> final stats -> summary
+    local profiles_csv="$1"
+    IFS=',' read -ra PROFILES <<< "$profiles_csv"
+
+    for p in "${PROFILES[@]}"; do
+        if [ ! -f "$REPO_ROOT/profiles/${p}.yaml" ]; then
+            error "Unknown profile '$p'. Available profiles:"
+            ls "$REPO_ROOT/profiles" | sed 's/\.yaml$//' | sed 's/^/  - /'
+            exit 1
+        fi
+    done
+
+    IFACE=$(detect_iface)
+    if [ -z "$IFACE" ]; then
+        info "Could not detect a real network interface (eth0/en0) — network stats will show as 0."
+    else
+        info "Using network interface: $IFACE"
+    fi
+
+    ensure_docker
+    start_stack
+    start_watchdog
+
+    for p in "${PROFILES[@]}"; do
+        info "=== Running scenario: $p ==="
+        read -r rx_before tx_before <<< "$(get_iface_bytes "$IFACE")"
+        run_stress_test "$p"
+        read -r rx_after tx_after <<< "$(get_iface_bytes "$IFACE")"
+        print_summary "$p" "$REPO_ROOT/results/run_${p}.log" "$rx_before" "$tx_before" "$rx_after" "$tx_after"
+    done
+
+    stop_watchdog
+    info "Playbook complete. Ran: $profiles_csv"
+}
+
+WATCHDOG_PID=""
+
+start_watchdog() {
+    if [ -f "$REPO_ROOT/monitor/crash_watch.py" ]; then
+        info "Starting crash watchdog in the background..."
+        python3 "$REPO_ROOT/monitor/crash_watch.py" &
+        WATCHDOG_PID=$!
+    else
+        info "monitor/crash_watch.py not found — skipping watchdog."
+    fi
+}
+
+stop_watchdog() {
+    if [ -n "$WATCHDOG_PID" ]; then
+        kill "$WATCHDOG_PID" 2>/dev/null
+        wait "$WATCHDOG_PID" 2>/dev/null
+        info "Crash watchdog stopped."
+    fi
+}
+
+# SLA thresholds — placeholder defaults, confirm actual values with the team.
+SLA_MAX_P95_LOGIN_MS=3000
+SLA_MAX_FAILURE_RATE=5.0
+
+print_summary() {
+    local profile="$1"
+    local run_log="$2"
+    local rx_before="$3" tx_before="$4" rx_after="$5" tx_after="$6"
+    local stats_csv="$REPO_ROOT/results/results_${profile}_stats.csv"
+    local summary_file="$REPO_ROOT/results/summary_${profile}.txt"
+
+    local req_count="N/A" fail_count="N/A" fail_rate="N/A" p95_login="N/A"
+
+    if [ -f "$stats_csv" ]; then
+        local agg_line
+        agg_line=$(grep "^Aggregated\|,Aggregated," "$stats_csv" | tail -1)
+        if [ -z "$agg_line" ]; then
+            agg_line=$(tail -1 "$stats_csv")
+        fi
+        req_count=$(echo "$agg_line" | awk -F',' '{print $3}')
+        fail_count=$(echo "$agg_line" | awk -F',' '{print $4}')
+        if [ -n "$req_count" ] && [ "$req_count" != "0" ]; then
+            fail_rate=$(awk -v f="$fail_count" -v r="$req_count" 'BEGIN { printf "%.2f", (f/r)*100 }')
+        fi
+    fi
+
+    if [ -f "$run_log" ]; then
+        p95_login=$(grep -E "^POST[[:space:]]+/login[[:space:]]" "$run_log" | tail -1 | awk '{print $8}')
+        p95_login="${p95_login:-N/A}"
+    fi
+
+    local rx_mb tx_mb
+    rx_mb=$(bytes_to_mb "$(( rx_after - rx_before ))")
+    tx_mb=$(bytes_to_mb "$(( tx_after - tx_before ))")
+
+    local sla_verdict="PASS"
+    local sla_reason=""
+    if [ "$p95_login" != "N/A" ] && awk -v p="$p95_login" -v max="$SLA_MAX_P95_LOGIN_MS" 'BEGIN{exit !(p>max)}'; then
+        sla_verdict="FAIL"
+        sla_reason="p95 login latency (${p95_login}ms) exceeded ${SLA_MAX_P95_LOGIN_MS}ms"
+    fi
+    if [ "$fail_rate" != "N/A" ] && awk -v f="$fail_rate" -v max="$SLA_MAX_FAILURE_RATE" 'BEGIN{exit !(f>max)}'; then
+        sla_verdict="FAIL"
+        sla_reason="${sla_reason:+$sla_reason; }failure rate (${fail_rate}%) exceeded ${SLA_MAX_FAILURE_RATE}%"
+    fi
+
+    {
+        echo "======================================"
+        echo " Stress test summary — $profile"
+        echo "======================================"
+        echo "Total requests:        $req_count"
+        echo "Total failures:        $fail_count  (${fail_rate}%)"
+        echo "p95 login latency:     ${p95_login} ms"
+        echo "Network RX (${IFACE:-unknown}):     ${rx_mb} MB"
+        echo "Network TX (${IFACE:-unknown}):     ${tx_mb} MB"
+        echo "SLA verdict:           $sla_verdict${sla_reason:+ — $sla_reason}"
+        echo "Results saved to:      $REPO_ROOT/results/"
+        echo "======================================"
+        echo "Note: SLA thresholds (p95 < ${SLA_MAX_P95_LOGIN_MS}ms, failure rate < ${SLA_MAX_FAILURE_RATE}%)"
+        echo "      are placeholder defaults — confirm real values with the team."
+        echo "Note: network stats use the real host interface (${IFACE:-none detected}),"
+        echo "      not the Docker bridge — see known limitation on per-container breakdown."
+    } | tee "$summary_file"
+
+    info "Summary saved to: $summary_file"
+}
+
 case "${1:-start}" in
+    -l)
+        if [ -z "$2" ]; then
+            error "Usage: ./start.sh -l <profile>[,<profile2>,...]"
+            error "Example: ./start.sh -l normal_day"
+            error "Example: ./start.sh -l normal_day,flash_event"
+            exit 1
+        fi
+        run_playbook "$2"
+        ;;
     start)
         ensure_docker
         start_stack
@@ -241,7 +437,12 @@ case "${1:-start}" in
         run_stress_test "$2"
         ;;
     *)
-        echo "Usage: ./start.sh [start|stop|status|stress <profile>]"
+        echo "Usage:"
+        echo "  ./start.sh -l <profile>[,<profile2>,...]  → full playbook: baseline, start, watchdog, load, summary"
+        echo "  ./start.sh start                          → just start services, no load test"
+        echo "  ./start.sh stop                           → stop everything"
+        echo "  ./start.sh status                         → show container status"
+        echo "  ./start.sh stress <profile>                → run a load test only (services must already be up)"
         exit 1
         ;;
 esac
