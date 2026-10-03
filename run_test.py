@@ -69,7 +69,7 @@ def main():
     cmd = [
         "locust",
         "-f", "locustfile.py,loadshapes.py",
-        "--host", "http://127.0.0.1:8000",
+        "--host", "http://192.168.29.212:8000",
         "--headless",
         "--csv", csv_prefix,
         "--run-time", f"{total_duration + 30}s",
