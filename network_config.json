@@ -1,0 +1,30 @@
+{
+  "network": {
+    "name": "dcsim-macvlan",
+    "subnet": "192.168.64.0/24",
+    "gateway": "192.168.64.1",
+    "ip_range": "192.168.64.192/27"
+  },
+  "services": {
+    "FASTAPI": {
+      "mac_address": "22:e7:99:6a:b6:3c",
+      "container_name": "dcsim-fastapi",
+      "resolved_interface": "enp0s1"
+    },
+    "LOCUST": {
+      "mac_address": "22:e7:99:6a:b6:3c",
+      "container_name": "dcsim-locust-master",
+      "resolved_interface": "enp0s1"
+    },
+    "GRAFANA": {
+      "mac_address": "22:e7:99:6a:b6:3c",
+      "container_name": "dcsim-grafana",
+      "resolved_interface": "enp0s1"
+    },
+    "PROMETHEUS": {
+      "mac_address": "22:e7:99:6a:b6:3c",
+      "container_name": "dcsim-prometheus",
+      "resolved_interface": "enp0s1"
+    }
+  }
+}
