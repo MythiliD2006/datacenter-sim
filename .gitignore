@@ -18,4 +18,4 @@ results_*.csv
 .env
 
 # macOS
-.DS_Store
+.DS_Storeinterface_map.json
