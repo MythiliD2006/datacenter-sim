@@ -1,0 +1,122 @@
+# datacenter-sim settings.
+# This file is copied to your data folder (~/.dcsim/config.yaml) on first launch.
+# Edit it from the control panel (Settings tab) or by hand; nothing in the code
+# overrides these values.
+
+control_panel:
+  host: 127.0.0.1          # use 0.0.0.0 to open the panel to other machines on your network
+  port: 8765               # if busy, the next free port is picked automatically
+  open_browser: true
+  sample_interval_sec: 1.0 # how often system + load metrics are recorded
+
+# The server under test. "builtin" starts the bundled simulated server;
+# "external" points every load test at a server you already run.
+target:
+  mode: builtin
+  external_url: ""          # e.g. http://10.0.0.25:8000 when mode is external
+  host: 127.0.0.1
+  port: 0                   # 0 = pick a free port automatically
+  auto_start: true          # start the builtin server when the panel opens
+  auto_restart_on_crash: false
+  health_path: /health
+  health_fail_threshold: 3  # consecutive failed health checks = crash
+  grpc_port: 0              # built-in gRPC server port; 0 = pick a free port automatically
+  external_grpc: ""         # host:port of your gRPC server when mode is external (empty = no gRPC)
+
+# How the load generator logs in. Works for the builtin server and for an
+# external server that exposes a similar JSON login.
+auth:
+  login_path: /login
+  logout_path: /logout
+  username_field: username
+  password_field: password
+  token_field: token
+  token_header: Authorization
+  token_prefix: "Bearer "
+  account_template: "user_{n}"   # {n} = account number; each simulated user gets its own
+  password: pass
+  # Accounts the builtin server creates = capacity x this factor (so every
+  # simulated user can have its own login).
+  accounts_per_user: 1.2
+
+# Builtin server behaviour (all latencies in milliseconds).
+server:
+  password_hash_rounds: 6        # bcrypt cost; higher = more CPU per login
+  hash_in_threadpool: true       # false reproduces the old event-loop-blocking bug
+  session_ttl_sec: 900           # idle sessions expire after this
+  session_sweep_interval_sec: 30
+  rate_limit:
+    enabled: true
+    key: username                # username | ip
+    max_attempts: 30
+    window_sec: 60
+  endpoints:
+    profile_update_delay_ms: [20, 60]
+    api_data_delay_ms: [10, 100]
+    api_data_records: [45, 60]
+    transaction_cpu_iterations: 2000   # hashing work per payment
+    transaction_lock_hold_ms: [1, 5]   # shared ledger lock = contention at peak
+    feed_items: [20, 40]
+    upload_max_kb: 4096
+    upload_fsync: true                 # force uploads to disk (real sequential write load)
+    stream_file_mb: 16                 # file served by /media/stream
+    stream_chunk_kb: 256
+    iot_buffer_flush_every: 500        # readings buffered before a flush
+    catalog_items: 500
+    catalog_page_size: [20, 50]
+    posts_kept: 5000
+    ledger_kept: 20000
+    recommendation_cpu_iterations: 1500
+    page_kb: 40                        # HTML size of /web/home (browser page loads)
+    asset_kb: [5, 60]                  # size range of /static/* files (scripts, styles, images)
+    storage_file_mb: 64                # file used for small random reads/writes (/storage/random)
+    storage_block_kb: 4
+    storage_ops: [4, 16]               # random blocks touched per request
+    storage_fsync: true                # flush random writes to disk
+  grpc_enabled: true                   # run the built-in gRPC services next to HTTP
+  log_requests: false                  # true logs every request (large files)
+
+# How many simulated users this computer can drive. Profiles give users as a
+# percentage of this number ("60%"), so the same profile scales to any machine.
+capacity:
+  mode: auto            # auto | measured | fixed
+  fixed_users: 200      # used when mode is fixed
+  measured_users: 0     # written by "Measure capacity" in the panel
+  users_per_core: 120   # rough CPU budget per logical core
+  mb_per_user: 3.0      # RAM per simulated user (load generator + server session)
+  reserve_memory_fraction: 0.3
+  fds_per_user: 3
+  min_users: 10
+  max_users: 20000
+
+load:
+  seed: null               # null = a new random seed per run (always recorded); a number = repeat that exact run
+  workers: auto            # load-generator processes; auto = based on cores and capacity
+  users_per_worker: 400
+  max_workers: 16
+  stop_timeout_sec: 15
+  allow_remote_workers: true   # let other computers running "dcsim worker" add their capacity
+  master_port: 5557            # port remote workers connect to (open it in your firewall)
+  worker_wait_sec: 60          # how long to wait for workers to connect
+
+calibration:
+  step_sec: 20
+  steps: 8
+  start_fraction: 0.1      # of the auto estimate
+  end_fraction: 1.5
+
+# Pass/fail thresholds used by reports.
+sla:
+  p95_ms: 500
+  error_rate_pct: 1.0
+  cpu_pct: 80
+  memory_pct: 90
+
+# Rules used to flag likely defects in reports.
+analysis:
+  transition_window_sec: 10        # first N seconds of a phase count as the "transition"
+  transition_p95_ratio: 1.5        # transition p95 this much worse than the steady part = flagged
+  memory_growth_pct: 15            # server memory up this much after cooldown = possible leak
+  session_leftover_ratio: 1.5      # sessions left vs users left after cooldown
+  interface_starvation_ratio: 3.0  # one interface's p95 vs the fastest one
+  cpu_saturation_pct: 90

@@ -1,0 +1,9 @@
+name: gRPC microservices
+description: Service-to-service gRPC traffic (telemetry and payments) alongside REST API clients.
+archetype: microservices
+mix: {grpc_telemetry: 50, grpc_payments: 25, api: 25}
+stages:
+- {phase: ramp_up, duration: 40, users: 60%, spawn_rate: auto}
+- {phase: peak, duration: 120, users: 80%, spawn_rate: auto}
+- {phase: steady, duration: 60, users: 60%, spawn_rate: auto}
+- {phase: cooldown, duration: 30, users: 5%, spawn_rate: auto}

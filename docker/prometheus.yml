@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # load side: users, phase, req/s, latency, per interface (from the control panel)
+  - job_name: dcsim-load
+    static_configs:
+      - targets: ["dcsim:8765"]
+
+  # server side: HTTP and gRPC requests, latency histograms, sessions (built-in server)
+  - job_name: dcsim-server
+    static_configs:
+      - targets: ["dcsim:8000"]
+
+  # the machine: CPU, memory, disk, network
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

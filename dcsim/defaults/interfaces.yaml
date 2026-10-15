@@ -1,0 +1,235 @@
+# Interface library: how each kind of client behaves.
+# Profiles mix these by weight. Edit from the control panel (Interfaces tab).
+#
+# Fields
+#   label / description      shown in the panel
+#   login                    true = log in before working, log out when the session ends
+#   wait_sec [min, max]      think-time between actions
+#   session_lifetime_sec     [min, max] seconds before logging out and back in; null = stay logged in
+#   heavy_user_fraction      share of users that are "heavy" (act more often)
+#   heavy_wait_multiplier    heavy users' think-time is multiplied by this
+#   tasks                    actions with relative weight. Per task:
+#       method, path, weight, auth (default true), name,
+#       params {query}, json {body}, body_kb (random payload size), stream (read whole response),
+#       assets [paths] (browser page load: fetch these after the page),
+#       protocol: grpc (path is /package.Service/Method, json is the request message)
+
+web:
+  label: Website
+  description: Latency-sensitive, bursty browsing from a browser.
+  login: true
+  wait_sec: [2, 5]
+  session_lifetime_sec: [60, 240]
+  heavy_user_fraction: 0.2
+  heavy_wait_multiplier: 0.4
+  tasks:
+    - { name: open home page, method: GET, path: /web/home, weight: 2, assets: [/static/app.css, /static/app.js, /static/vendor.js, /static/logo.png, /static/hero.png] }
+    - { name: view profile, method: GET, path: /me, weight: 3 }
+    - { name: dashboard data, method: GET, path: /api/data, weight: 2 }
+    - { name: update profile, method: POST, path: /profile/update, weight: 2, json: { display_name: web session } }
+    - { name: health, method: GET, path: /health, weight: 1, auth: false }
+
+mobile:
+  label: Mobile app
+  description: Frequent small API calls and background sync with short sessions.
+  login: true
+  wait_sec: [1, 3]
+  session_lifetime_sec: [30, 120]
+  heavy_user_fraction: 0.3
+  heavy_wait_multiplier: 0.5
+  tasks:
+    - { name: sync profile, method: GET, path: /me, weight: 4 }
+    - { name: sync data, method: GET, path: /api/data, weight: 3 }
+    - { name: update profile, method: POST, path: /profile/update, weight: 1, json: { display_name: mobile session } }
+
+api:
+  label: Backend API client
+  description: Sustained machine-driven traffic that keeps one long session.
+  login: true
+  wait_sec: [0.1, 0.5]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: pull data, method: GET, path: /api/data, weight: 5 }
+    - { name: whoami, method: GET, path: /me, weight: 2 }
+
+batch:
+  label: Background / batch job
+  description: I/O-heavy backups - large sequential writes and reads.
+  login: true
+  wait_sec: [3, 8]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: backup upload, method: POST, path: /batch/upload, weight: 3, body_kb: 1024 }
+    - { name: restore read, method: GET, path: /media/stream, weight: 1, params: { size_kb: 4096 }, stream: true }
+
+shopper_web:
+  label: Shopper (web)
+  description: Browses the catalog and checks out from a browser.
+  login: true
+  wait_sec: [1, 4]
+  session_lifetime_sec: [60, 300]
+  heavy_user_fraction: 0.15
+  heavy_wait_multiplier: 0.4
+  tasks:
+    - { name: browse catalog, method: GET, path: /catalog, weight: 6 }
+    - { name: checkout, method: POST, path: /cart/checkout, weight: 2, json: { items: 3 } }
+    - { name: view account, method: GET, path: /me, weight: 1 }
+
+shopper_mobile:
+  label: Shopper (mobile app)
+  description: Short app sessions with quick browse-and-buy bursts.
+  login: true
+  wait_sec: [0.5, 2]
+  session_lifetime_sec: [20, 90]
+  heavy_user_fraction: 0.25
+  heavy_wait_multiplier: 0.5
+  tasks:
+    - { name: browse catalog, method: GET, path: /catalog, weight: 5 }
+    - { name: checkout, method: POST, path: /cart/checkout, weight: 3, json: { items: 1 } }
+
+inventory_api:
+  label: Inventory service
+  description: Machine updates to stock levels during a sale.
+  login: true
+  wait_sec: [0.2, 0.6]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: update stock, method: POST, path: /inventory/update, weight: 4, json: { delta: -1 } }
+    - { name: read catalog, method: GET, path: /catalog, weight: 1 }
+
+payments_client:
+  label: Banking customer
+  description: Transaction-heavy users with strict latency needs.
+  login: true
+  wait_sec: [1, 3]
+  session_lifetime_sec: [60, 180]
+  heavy_user_fraction: 0.1
+  heavy_wait_multiplier: 0.3
+  tasks:
+    - { name: make payment, method: POST, path: /transactions, weight: 4, json: { amount: 25 } }
+    - { name: history, method: GET, path: /transactions/history, weight: 3 }
+    - { name: account, method: GET, path: /me, weight: 1 }
+
+settlement_batch:
+  label: Settlement batch
+  description: Periodic end-of-day settlement - history scans plus large writes.
+  login: true
+  wait_sec: [2, 6]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: scan ledger, method: GET, path: /transactions/history, weight: 2, params: { limit: 500 } }
+    - { name: write settlement file, method: POST, path: /batch/upload, weight: 1, body_kb: 2048 }
+
+viewer:
+  label: Video viewer
+  description: Large sequential reads with high read concurrency.
+  login: true
+  wait_sec: [2, 6]
+  session_lifetime_sec: [120, 600]
+  heavy_user_fraction: 0.3
+  heavy_wait_multiplier: 0.5
+  tasks:
+    - { name: watch segment, method: GET, path: /media/stream, weight: 5, params: { size_kb: 2048 }, stream: true }
+    - { name: recommendations, method: GET, path: /recommendations, weight: 1 }
+
+recommendation_api:
+  label: Recommendation service
+  description: Backend service refreshing recommendations.
+  login: true
+  wait_sec: [0.2, 1]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: recompute, method: GET, path: /recommendations, weight: 3, params: { depth: 3 } }
+    - { name: pull data, method: GET, path: /api/data, weight: 1 }
+
+iot_device:
+  label: IoT sensor
+  description: Machine-generated readings sent in periodic bursts.
+  login: true
+  wait_sec: [0.5, 1.5]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: send reading, method: POST, path: /iot/ingest, weight: 10, json: { readings: 5 } }
+
+analytics_batch:
+  label: Analytics job
+  description: Backend aggregation over collected sensor data.
+  login: true
+  wait_sec: [2, 5]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: aggregate, method: GET, path: /analytics/aggregate, weight: 1 }
+
+social_user:
+  label: Social media user
+  description: Mixed reads and writes - feed refreshes and posts.
+  login: true
+  wait_sec: [1, 4]
+  session_lifetime_sec: [60, 300]
+  heavy_user_fraction: 0.2
+  heavy_wait_multiplier: 0.3
+  tasks:
+    - { name: refresh feed, method: GET, path: /feed, weight: 6 }
+    - { name: post, method: POST, path: /posts, weight: 2, json: { text: hello } }
+    - { name: profile, method: GET, path: /me, weight: 1 }
+
+social_uploader:
+  label: Media uploader
+  description: Users uploading photos and videos.
+  login: true
+  wait_sec: [3, 8]
+  session_lifetime_sec: [60, 200]
+  heavy_user_fraction: 0.1
+  heavy_wait_multiplier: 0.5
+  tasks:
+    - { name: upload media, method: POST, path: /batch/upload, weight: 3, body_kb: 512 }
+    - { name: refresh feed, method: GET, path: /feed, weight: 2 }
+
+storage_client:
+  label: Database-style storage client
+  description: Peak-hour small random reads and writes (4 KB blocks) against server storage.
+  login: true
+  wait_sec: [0.2, 1]
+  session_lifetime_sec: [60, 300]
+  heavy_user_fraction: 0.2
+  heavy_wait_multiplier: 0.3
+  tasks:
+    - { name: random reads, method: GET, path: /storage/random, weight: 3 }
+    - { name: random read-write, method: POST, path: /storage/random, weight: 2, params: { write_ratio: 0.5 } }
+
+grpc_telemetry:
+  label: gRPC telemetry service
+  description: Machine-to-machine gRPC calls - streaming-style metric pulls and pushes.
+  login: true
+  wait_sec: [0.1, 0.5]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: get data, protocol: grpc, path: /dcsim.Telemetry/GetData, weight: 3 }
+    - { name: ingest, protocol: grpc, path: /dcsim.Telemetry/Ingest, weight: 2, json: { readings: 10 } }
+
+grpc_payments:
+  label: gRPC payments service
+  description: Internal service-to-service payment transfers over gRPC.
+  login: true
+  wait_sec: [0.3, 1]
+  session_lifetime_sec: null
+  heavy_user_fraction: 0
+  heavy_wait_multiplier: 1
+  tasks:
+    - { name: transfer, protocol: grpc, path: /dcsim.Payments/Transfer, weight: 1, json: { amount: 40 } }

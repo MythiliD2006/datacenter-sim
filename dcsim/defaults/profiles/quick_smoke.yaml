@@ -1,0 +1,9 @@
+name: Quick smoke test
+description: 'Two-minute check that everything works: short ramp, peak and cooldown.'
+archetype: generic
+mix: {web: 50, mobile: 35, api: 15}
+stages:
+- {phase: ramp_up, duration: 20, users: 20%, spawn_rate: auto}
+- {phase: peak, duration: 30, users: 30%, spawn_rate: auto}
+- {phase: steady, duration: 40, users: 20%, spawn_rate: auto}
+- {phase: cooldown, duration: 20, users: 2%, spawn_rate: auto}

@@ -1,0 +1,49 @@
+name: Day / night cycle
+description: A 24-hour day compressed into 6 minutes (15 s per hour). Night hours run backup jobs only; midday peak.
+archetype: time_based
+mix: {web: 40, mobile: 35, api: 15, batch: 10}
+stages:
+- {phase: steady, duration: 15, users: 8%, spawn_rate: auto, label: '00:00'}
+- phase: steady
+  duration: 15
+  users: 8%
+  spawn_rate: auto
+  label: 01:00 backup window
+  only: [batch, api]
+- phase: steady
+  duration: 15
+  users: 8%
+  spawn_rate: auto
+  label: 02:00 backup window
+  only: [batch, api]
+- phase: steady
+  duration: 15
+  users: 8%
+  spawn_rate: auto
+  label: 03:00 backup window
+  only: [batch, api]
+- phase: steady
+  duration: 15
+  users: 8%
+  spawn_rate: auto
+  label: 04:00 backup window
+  only: [batch, api]
+- {phase: steady, duration: 15, users: 8%, spawn_rate: auto, label: '05:00'}
+- {phase: steady, duration: 15, users: 8%, spawn_rate: auto, label: '06:00'}
+- {phase: ramp_up, duration: 15, users: 22%, spawn_rate: auto, label: '07:00'}
+- {phase: ramp_up, duration: 15, users: 36%, spawn_rate: auto, label: '08:00'}
+- {phase: ramp_up, duration: 15, users: 48%, spawn_rate: auto, label: '09:00'}
+- {phase: ramp_up, duration: 15, users: 59%, spawn_rate: auto, label: '10:00'}
+- {phase: ramp_up, duration: 15, users: 68%, spawn_rate: auto, label: '11:00'}
+- {phase: peak, duration: 15, users: 85%, spawn_rate: auto, label: '12:00'}
+- {phase: peak, duration: 15, users: 89%, spawn_rate: auto, label: '13:00'}
+- {phase: cooldown, duration: 15, users: 80%, spawn_rate: auto, label: '14:00'}
+- {phase: steady, duration: 15, users: 79%, spawn_rate: auto, label: '15:00'}
+- {phase: cooldown, duration: 15, users: 75%, spawn_rate: auto, label: '16:00'}
+- {phase: cooldown, duration: 15, users: 68%, spawn_rate: auto, label: '17:00'}
+- {phase: cooldown, duration: 15, users: 59%, spawn_rate: auto, label: '18:00'}
+- {phase: cooldown, duration: 15, users: 48%, spawn_rate: auto, label: '19:00'}
+- {phase: cooldown, duration: 15, users: 36%, spawn_rate: auto, label: '20:00'}
+- {phase: cooldown, duration: 15, users: 22%, spawn_rate: auto, label: '21:00'}
+- {phase: cooldown, duration: 15, users: 8%, spawn_rate: auto, label: '22:00'}
+- {phase: steady, duration: 15, users: 8%, spawn_rate: auto, label: '23:00'}

@@ -1,0 +1,9 @@
+name: Normal day
+description: 'Steady baseline: gradual ramp, long steady state, cooldown.'
+archetype: generic
+mix: {web: 50, mobile: 35, api: 15}
+stages:
+- {phase: ramp_up, duration: 60, users: 50%, spawn_rate: auto}
+- {phase: peak, duration: 60, users: 60%, spawn_rate: auto}
+- {phase: steady, duration: 240, users: 50%, spawn_rate: auto}
+- {phase: cooldown, duration: 60, users: 5%, spawn_rate: auto}

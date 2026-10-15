@@ -1,0 +1,9 @@
+name: Social media platform
+description: 'Mixed read/write traffic: feed refreshes, posts and media uploads.'
+archetype: social
+mix: {social_user: 75, social_uploader: 10, mobile: 15}
+stages:
+- {phase: ramp_up, duration: 60, users: 55%, spawn_rate: auto}
+- {phase: peak, duration: 60, users: 80%, spawn_rate: auto, label: Viral moment}
+- {phase: steady, duration: 180, users: 55%, spawn_rate: auto}
+- {phase: cooldown, duration: 40, users: 5%, spawn_rate: auto}

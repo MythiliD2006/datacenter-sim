@@ -1,0 +1,64 @@
+# Optional monitoring stack: datacenter-sim + Prometheus + Node Exporter + Grafana.
+#
+#   cd docker
+#   docker compose up --build
+#
+# Control panel  http://localhost:8765
+# Grafana        http://localhost:3000   (admin / admin) - dashboard "datacenter-sim"
+# Prometheus     http://localhost:9090
+#
+# The panel alone needs none of this; use it when you want Grafana dashboards
+# or long-term metric history next to the panel's own reports.
+name: datacenter-sim
+
+services:
+  dcsim:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8765:8765"     # control panel
+      - "8000:8000"     # built-in server under test
+      - "50051:50051"   # built-in gRPC server
+      - "5557:5557"     # remote load workers (dcsim worker --panel http://<this-host>:8765)
+    volumes:
+      - dcsim-data:/data
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    pid: host
+    command: ["--path.rootfs=/host"]
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on: [dcsim, node-exporter]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/datacenter-sim.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  dcsim-data:
+  prometheus-data:
+  grafana-data:

@@ -1,21 +1,9 @@
-# Python cache — never commit these
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# Virtual environment
+.venv/
 venv/
-
-# Logs and generated output
-logs/
-results/
-analysis/reports/
-data/
-results_*.csv
-
-# Environment variables
-.env
-
-# macOS
-.DS_Storeinterface_map.json
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.DS_Store
