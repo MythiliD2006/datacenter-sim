@@ -1,0 +1,12 @@
+name: IoT sensor fleet
+description: Machine-generated ingest traffic in periodic bursts with backend aggregation.
+archetype: iot
+mix: {iot_device: 92, analytics_batch: 8}
+stages:
+- {phase: ramp_up, duration: 30, users: 60%, spawn_rate: auto, label: Fleet online}
+- {phase: steady, duration: 40, users: 60%, spawn_rate: auto}
+- {phase: spike, duration: 10, users: 95%, spawn_rate: auto, label: Burst}
+- {phase: steady, duration: 40, users: 60%, spawn_rate: auto}
+- {phase: spike, duration: 10, users: 95%, spawn_rate: auto, label: Burst}
+- {phase: steady, duration: 40, users: 60%, spawn_rate: auto}
+- {phase: cooldown, duration: 30, users: 3%, spawn_rate: auto}

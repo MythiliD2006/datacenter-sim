@@ -1,0 +1,9 @@
+name: Video streaming
+description: High read concurrency with large sequential reads plus recommendation services.
+archetype: streaming
+mix: {viewer: 85, recommendation_api: 15}
+stages:
+- {phase: ramp_up, duration: 60, users: 40%, spawn_rate: auto, label: Evening start}
+- {phase: ramp_up, duration: 40, users: 75%, spawn_rate: auto, label: Prime time}
+- {phase: peak, duration: 180, users: 75%, spawn_rate: auto}
+- {phase: cooldown, duration: 60, users: 5%, spawn_rate: auto}

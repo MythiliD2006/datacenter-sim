@@ -1,0 +1,30 @@
+name: Independent interface curves
+description: 'Each interface follows its own curve: mobile peaks early, web at midday, API stays flat, batch runs at night.'
+archetype: time_based
+mix: {web: 40, mobile: 35, api: 15, batch: 10}
+stages:
+- phase: ramp_up
+  duration: 40
+  users: {mobile: 30%, api: 10%, web: 5%}
+  spawn_rate: auto
+  label: Morning commute
+- phase: peak
+  duration: 60
+  users: {mobile: 35%, api: 10%, web: 20%}
+  spawn_rate: auto
+  label: Late morning
+- phase: peak
+  duration: 60
+  users: {mobile: 15%, api: 10%, web: 45%}
+  spawn_rate: auto
+  label: Midday web peak
+- phase: cooldown
+  duration: 40
+  users: {mobile: 10%, api: 10%, web: 10%}
+  spawn_rate: auto
+  label: Evening
+- phase: steady
+  duration: 40
+  users: {api: 10%, batch: 15%}
+  spawn_rate: auto
+  label: Night batch

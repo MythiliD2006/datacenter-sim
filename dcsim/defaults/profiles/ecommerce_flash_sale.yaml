@@ -1,0 +1,10 @@
+name: E-commerce flash sale
+description: Massive concurrent shoppers on web and mobile, bursty checkouts, API-driven inventory updates.
+archetype: ecommerce
+mix: {shopper_web: 45, shopper_mobile: 40, inventory_api: 15}
+stages:
+- {phase: steady, duration: 40, users: 15%, spawn_rate: auto, label: Before sale}
+- {phase: spike, duration: 15, users: 95%, spawn_rate: auto, label: Sale opens}
+- {phase: peak, duration: 150, users: 95%, spawn_rate: auto}
+- {phase: cooldown, duration: 30, users: 40%, spawn_rate: auto, label: Stock sold out}
+- {phase: cooldown, duration: 30, users: 5%, spawn_rate: auto}

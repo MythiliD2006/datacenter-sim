@@ -1,0 +1,24 @@
+name: 'Storage: backups vs peak I/O'
+description: Night backup window with large sequential writes, then peak hours with small random reads and writes.
+archetype: storage
+mix: {batch: 30, storage_client: 50, web: 20}
+stages:
+- phase: steady
+  duration: 60
+  users: 20%
+  spawn_rate: auto
+  label: Backup window
+  only: [batch]
+- phase: ramp_up
+  duration: 40
+  users: 70%
+  spawn_rate: auto
+  label: Morning ramp
+  mix: {storage_client: 70, web: 30}
+- phase: peak
+  duration: 120
+  users: 70%
+  spawn_rate: auto
+  label: Peak OLTP
+  mix: {storage_client: 70, web: 30}
+- {phase: cooldown, duration: 40, users: 5%, spawn_rate: auto}

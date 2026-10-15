@@ -1,0 +1,15 @@
+name: Banking & payments
+description: Transaction-heavy customers with strict latency, followed by batch settlement.
+archetype: banking
+mix: {payments_client: 80, api: 10, settlement_batch: 10}
+stages:
+- {phase: ramp_up, duration: 60, users: 60%, spawn_rate: auto, label: Business hours}
+- {phase: peak, duration: 180, users: 70%, spawn_rate: auto}
+- {phase: cooldown, duration: 30, users: 15%, spawn_rate: auto}
+- phase: steady
+  duration: 60
+  users: 15%
+  spawn_rate: auto
+  label: Settlement run
+  only: [settlement_batch]
+- {phase: cooldown, duration: 20, users: 2%, spawn_rate: auto}

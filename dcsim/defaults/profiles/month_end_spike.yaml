@@ -1,0 +1,16 @@
+name: Month-end / quarter-end
+description: Normal days, then a month-end close where reporting, settlement and user traffic all peak together.
+archetype: time_based
+mix: {web: 35, api: 25, payments_client: 25, settlement_batch: 15}
+stages:
+- {phase: ramp_up, duration: 40, users: 40%, spawn_rate: auto, label: Normal day}
+- {phase: steady, duration: 80, users: 40%, spawn_rate: auto}
+- {phase: ramp_up, duration: 30, users: 85%, spawn_rate: auto, label: Month-end close}
+- {phase: peak, duration: 120, users: 85%, spawn_rate: auto}
+- phase: steady
+  duration: 30
+  users: 60%
+  spawn_rate: auto
+  label: Settlement only
+  only: [settlement_batch, api]
+- {phase: cooldown, duration: 40, users: 5%, spawn_rate: auto}

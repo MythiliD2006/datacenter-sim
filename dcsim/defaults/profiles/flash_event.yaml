@@ -1,0 +1,9 @@
+name: Flash event
+description: 'Sudden surge: users arrive in seconds, hold at peak, then leave together (mass logout).'
+archetype: generic
+mix: {web: 50, mobile: 35, api: 15}
+stages:
+- {phase: idle, duration: 20, users: 5%, spawn_rate: auto, label: Quiet before}
+- {phase: spike, duration: 20, users: 90%, spawn_rate: auto, label: Surge}
+- {phase: peak, duration: 160, users: 90%, spawn_rate: auto}
+- {phase: cooldown, duration: 40, users: 5%, spawn_rate: auto, label: Mass logout}

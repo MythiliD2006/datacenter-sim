@@ -1,0 +1,61 @@
+name: Weekday vs weekend
+description: 'One week compressed into 7 minutes: busy weekdays, quiet weekends, nightly batch windows.'
+archetype: time_based
+mix: {web: 45, mobile: 35, api: 12, batch: 8}
+stages:
+- {phase: ramp_up, duration: 15, users: 60%, spawn_rate: auto, label: Mon morning}
+- {phase: steady, duration: 30, users: 60%, spawn_rate: auto, label: Mon daytime}
+- phase: cooldown
+  duration: 15
+  users: 12%
+  spawn_rate: auto
+  label: Mon night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 55%, spawn_rate: auto, label: Tue morning}
+- {phase: steady, duration: 30, users: 55%, spawn_rate: auto, label: Tue daytime}
+- phase: cooldown
+  duration: 15
+  users: 11%
+  spawn_rate: auto
+  label: Tue night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 55%, spawn_rate: auto, label: Wed morning}
+- {phase: steady, duration: 30, users: 55%, spawn_rate: auto, label: Wed daytime}
+- phase: cooldown
+  duration: 15
+  users: 11%
+  spawn_rate: auto
+  label: Wed night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 58%, spawn_rate: auto, label: Thu morning}
+- {phase: steady, duration: 30, users: 58%, spawn_rate: auto, label: Thu daytime}
+- phase: cooldown
+  duration: 15
+  users: 11%
+  spawn_rate: auto
+  label: Thu night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 65%, spawn_rate: auto, label: Fri morning}
+- {phase: steady, duration: 30, users: 65%, spawn_rate: auto, label: Fri daytime}
+- phase: cooldown
+  duration: 15
+  users: 13%
+  spawn_rate: auto
+  label: Fri night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 25%, spawn_rate: auto, label: Sat morning}
+- {phase: steady, duration: 30, users: 25%, spawn_rate: auto, label: Sat daytime}
+- phase: cooldown
+  duration: 15
+  users: 5%
+  spawn_rate: auto
+  label: Sat night
+  only: [batch, api]
+- {phase: ramp_up, duration: 15, users: 20%, spawn_rate: auto, label: Sun morning}
+- {phase: steady, duration: 30, users: 20%, spawn_rate: auto, label: Sun daytime}
+- phase: cooldown
+  duration: 15
+  users: 5%
+  spawn_rate: auto
+  label: Sun night
+  only: [batch, api]
